@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/titaruiz1/wallet-lab/db"
-	"github.com/titaruiz1/wallet-lab/models"
+	"github.com/titaRuiz1/Wallet-lab/db"
+	"github.com/titaRuiz1/Wallet-lab/models"
 	"log"
 	"fmt"
 )

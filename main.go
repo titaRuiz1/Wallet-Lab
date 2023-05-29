@@ -3,9 +3,9 @@ package main
 import(
 	"net/http"
 	"github.com/gorilla/mux"
-	"github.com/titaruiz1/wallet-lab/controllers"
+	"github.com/titaRuiz1/Wallet-lab/controllers"
 	"fmt"
-	"github.com/titaruiz1/wallet-lab/db"
+	"github.com/titaRuiz1/Wallet-lab/db"
 
 )
 
