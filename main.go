@@ -6,7 +6,7 @@ import(
 	"github.com/titaruiz1/wallet-lab/controllers"
 	"fmt"
 	"github.com/titaruiz1/wallet-lab/db"
-
+	"github.com/rs/cors"
 )
 
 func main(){
