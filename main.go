@@ -18,6 +18,9 @@ func main(){
 	router.HandleFunc("/wallets", controllers.CreateWallet).Methods("POST")
 	router.HandleFunc("/wallets/{dni}", controllers.DeleteWallet).Methods("DELETE")
 	router.HandleFunc("/wallets/{dni}", controllers.WalletStatus).Methods("GET")
+	router.HandleFunc("/transaction", controllers.CreateTransaction).Methods("POST")
+	router.HandleFunc("/wallet/{id}", controllers.GetMovements).Methods("GET")
+	
 	
 	db.Db.PingOrDie()
 	// Iniciar el servidor HTTP

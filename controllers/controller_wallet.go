@@ -1,68 +1,62 @@
 package controllers
 
 import (
-	"fmt"
-	"log"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"log"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/titaruiz1/wallet-lab/models"
 	"github.com/titaruiz1/wallet-lab/services"
-	// "strconv"
+	"strconv"
 )
 
-func CreateWallet(w http.ResponseWriter,r *http.Request){
-	userID  := r.URL.Query().Get("dni")
 
-	// Verificar si el DNI ya existe en la base de datos
-	existingWallet, err := services.GetWallet(userID)
+
+func CreateWallet(w http.ResponseWriter, r *http.Request) {
+	nationalID := r.URL.Query().Get("national_id")
+	country := r.URL.Query().Get("country")
+	balance, err := strconv.ParseFloat(r.URL.Query().Get("balance"), 64)
 	if err != nil {
-		http.Error(w, "Error retrieving wallet", http.StatusInternalServerError)
+		fmt.Println("Error al convertir el monto de balance en float:", err)
 		return
 	}
-
-	// Si ya existe una billetera con el mismo DNI, devuelve un mensaje correspondiente
-	if existingWallet.DNI != "" {
-		http.Error(w, "DNI already exists", http.StatusBadRequest)
-		return
+	exists, err := services.CkeckIfExistWallet(nationalID)
+	if err != nil {
+		http.Error(w,"Error verifying if wallet exist", http.StatusInternalServerError)
 	}
 
-	response, err := getChecksAPI(userID)
+	if exists {
+		http.Error(w, "Wallet already exist", http.StatusConflict)
+	}
+	
+	// defer response.Body.Close()
+	// Verificar la respuesta deseada
+	response, err:= getChecksAPI(nationalID)
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w,"Error requesting external provider", http.StatusInternalServerError)
 	}
 
 	defer response.Body.Close()
-	// Verificar la respuesta deseada
-
 	// Decodificar el cuerpo de la solicitud en una estructura de datos de Wallet
-	newWallet := models.Wallet{ 
-		DNI: userID, 
-		CountryID: "PE",
+	newWallet := models.Wallet{
+		DNI:       nationalID,
+		CountryID: country,
+		Balance:   balance,
 	}
-
-	var walletData interface{}
+	
+	var walletData models.ValidationWallet
 	json.NewDecoder(response.Body).Decode(&walletData)
 
 	// Acceder a los campos específicos en walletData
-	dataMap, ok := walletData.(map[string]interface{})["checks"].([]interface{})
-	if !ok {
-			fmt.Println("El tipo de datos no es el esperado")
-			return
-	}
-
-	score, ok := dataMap[0].(map[string]interface{})["score"].(float64)
-	if !ok {
-			fmt.Println("La estructura no coincide con el tipo esperado")
-			return
-	}
-
-	fmt.Println(score)
-
-	if(score == 1){
+	
+	if walletData.Check[0].Score == 1 {
 		json.NewEncoder(w).Encode("Creando...")
-		
+
 		// Crear la billetera en la base de datos
+			
 		err := services.Create(newWallet)
 		if err != nil {
 			http.Error(w, "Failed to create wallet", http.StatusInternalServerError)
@@ -72,16 +66,20 @@ func CreateWallet(w http.ResponseWriter,r *http.Request){
 		w.WriteHeader(http.StatusCreated)
 		fmt.Fprintf(w, "Wallet created successfully")
 
-	}else{
+	} else {
 		json.NewEncoder(w).Encode("La persona tiene antecedentes.")
 	}
 }
 
 func getChecksAPI(nationalID string) (*http.Response, error) {
+	err := godotenv.Load()
+	if err != nil {
+			log.Fatal("Error loading .env file")
+	}
 	// Construir la URL con el parámetro national_id
 	url := fmt.Sprintf("https://api.checks.truora.com/v1/checks?national_id=%s&country=PE&type=person&user_authorized=true", nationalID)
-	apiKey := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiIiwiYWRkaXRpb25hbF9kYXRhIjoie30iLCJjbGllbnRfaWQiOiJUQ0k2MmRkOGY2ZTcyMGY2NmVmYTQ2M2Q3ZDQxNzYxYzk0MyIsImV4cCI6MzI2MTU5NDU5MywiZ3JhbnQiOiIiLCJpYXQiOjE2ODQ3OTQ1OTMsImlzcyI6Imh0dHBzOi8vY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vdXMtZWFzdC0xX09tRlV0bXRMVCIsImp0aSI6ImI1ZmJiODI2LWY0ZjgtNGUxOC05MmExLWE4OTQ1YWI1ZTUxNiIsImtleV9uYW1lIjoicHJ1ZWJhMSIsImtleV90eXBlIjoiYmFja2VuZCIsInVzZXJuYW1lIjoiZ21haWxhc3VudGl0YXJsLXBydWViYTEifQ.kdU1e0oGQn5Dp3B-hcatxyDdfpJH-dhSmX3WityXtwY"
-	
+	apiKey := os.Getenv("API_KEY")
+
 	// Crear una nueva solicitud GET
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -100,14 +98,14 @@ func getChecksAPI(nationalID string) (*http.Response, error) {
 	return response, nil
 }
 
-func DeleteWallet(w http.ResponseWriter,r *http.Request){
+func DeleteWallet(w http.ResponseWriter, r *http.Request) {
 	dniStr := mux.Vars(r)["dni"]
 
 	// Creas un objeto Wallet con los datos necesarios para eliminarlo
 	wallet := models.Wallet{
 		DNI: dniStr,
 	}
-	
+
 	err := services.Delete(wallet)
 
 	if err != nil {
@@ -119,7 +117,7 @@ func DeleteWallet(w http.ResponseWriter,r *http.Request){
 	fmt.Fprintf(w, "Wallet with DNI %s has been deleted", dniStr)
 }
 
-func WalletStatus(w http.ResponseWriter,r *http.Request){
+func WalletStatus(w http.ResponseWriter, r *http.Request) {
 	dniStr := mux.Vars(r)["dni"]
 	fmt.Println(dniStr)
 	// Obtén la billetera utilizando el número de DNI
@@ -139,7 +137,3 @@ func WalletStatus(w http.ResponseWriter,r *http.Request){
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "Wallet with DNI %s found", dniStr)
 }
-
-
-
-

@@ -3,6 +3,7 @@ package services
 import (
 	"github.com/titaruiz1/wallet-lab/db"
 	"github.com/titaruiz1/wallet-lab/models"
+	
 	"log"
 	"fmt"
 )
@@ -16,10 +17,11 @@ func Create(wallet models.Wallet) error {
 		log.Fatal(err)
 		
 	}
-	const SQLInsertNewWallet = `INSERT INTO wallets (dni, country_id)
-														VALUES ($1, $2)`
+	
+	const SQLInsertNewWallet = `INSERT INTO wallets (dni, country_id, balance)
+														VALUES ($1, $2, $3)`
 	// Ejecutamos la consulta SQL para insertar un nuevo registro en la tabla 'wallet' dentro de la transacción.
-	_, err = tx.Exec(SQLInsertNewWallet,wallet.DNI, wallet.CountryID)
+	_, err = tx.Exec(SQLInsertNewWallet,wallet.DNI, wallet.CountryID, wallet.Balance)
 	if err != nil {
 		// Si algo salió mal, hacemos un rollback de la transacción
 		tx.Rollback()
@@ -31,9 +33,22 @@ func Create(wallet models.Wallet) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	
 	return nil
 }
+
+
+func CkeckIfExistWallet(dniStr string)(bool, error){
+	// Verificar si el DNI con el country  ya existe en la base de datos
+	existingWallet, err := GetWallet(dniStr)
+	if err != nil {
+		return false,err
+	}
+
+	return existingWallet.DNI != "",nil
+	}
+
+
 
 func GetWallet(dniStr string) (models.Wallet, error) {
 	var wallet models.Wallet
