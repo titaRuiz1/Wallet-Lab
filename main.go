@@ -14,6 +14,11 @@ func main(){
 	db.UpDb()
 	router := mux.NewRouter()
 
+	corsOptions := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+	})
+
 	// Definir una ruta
 	router.HandleFunc("/wallets", controllers.CreateWallet).Methods("POST")
 	router.HandleFunc("/wallets/{dni}", controllers.DeleteWallet).Methods("DELETE")
@@ -21,10 +26,10 @@ func main(){
 	router.HandleFunc("/transaction", controllers.CreateTransaction).Methods("POST")
 	router.HandleFunc("/wallet/{id}", controllers.GetMovements).Methods("GET")
 	
-	
+	handler := corsOptions.Handler(router)
 	db.Db.PingOrDie()
 	// Iniciar el servidor HTTP
 	fmt.Println("Server is listening on port 8080...")
-	http.ListenAndServe(":8080", router)
+	http.ListenAndServe(":8080", handler)
 
 }
